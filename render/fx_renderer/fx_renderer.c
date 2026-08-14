@@ -94,6 +94,9 @@ static inline void free_shaders(struct fx_renderer *renderer) {
 	glDeleteProgram(renderer->shaders.tex_effects_rgba.program);
 	glDeleteProgram(renderer->shaders.tex_effects_rgbx.program);
 	glDeleteProgram(renderer->shaders.tex_effects_ext.program);
+	glDeleteProgram(renderer->shaders.discard_transparent_rgba.program);
+	glDeleteProgram(renderer->shaders.discard_transparent_rgbx.program);
+	glDeleteProgram(renderer->shaders.discard_transparent_ext.program);
 	glDeleteProgram(renderer->shaders.box_shadow.program);
 	glDeleteProgram(renderer->shaders.blur1.program);
 	glDeleteProgram(renderer->shaders.blur2.program);
@@ -414,6 +417,22 @@ static bool link_shaders(struct fx_renderer *renderer) {
 	if (!link_tex_program(&renderer->shaders.tex_effects_ext,
 				SHADER_SOURCE_TEXTURE_EXTERNAL, true)) {
 		wlr_log(WLR_ERROR, "Could not link tex_effects_EXTERNAL shader");
+		goto error;
+	}
+
+	if (!link_discard_transparent_program(&renderer->shaders.discard_transparent_rgba,
+			SHADER_SOURCE_TEXTURE_RGBA)) {
+		wlr_log(WLR_ERROR, "Could not link discard-transparent RGBA shader");
+		goto error;
+	}
+	if (!link_discard_transparent_program(&renderer->shaders.discard_transparent_rgbx,
+			SHADER_SOURCE_TEXTURE_RGBX)) {
+		wlr_log(WLR_ERROR, "Could not link discard-transparent RGBX shader");
+		goto error;
+	}
+	if (!link_discard_transparent_program(&renderer->shaders.discard_transparent_ext,
+			SHADER_SOURCE_TEXTURE_EXTERNAL)) {
+		wlr_log(WLR_ERROR, "Could not link discard-transparent external shader");
 		goto error;
 	}
 

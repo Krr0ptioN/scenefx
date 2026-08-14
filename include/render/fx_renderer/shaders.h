@@ -115,8 +115,6 @@ struct tex_shader {
 	GLint alpha;
 	GLint pos_attrib;
 
-	GLint discard_transparent;
-
 	// Only used for the effects shader
 	struct {
 		GLint size;
@@ -131,6 +129,9 @@ struct tex_shader {
 
 bool link_tex_program(struct tex_shader *shader, enum fx_tex_shader_source source,
 		bool effects);
+
+bool link_discard_transparent_program(struct tex_shader *shader,
+		enum fx_tex_shader_source source);
 
 struct box_shadow_shader {
 	GLuint program;

@@ -16,6 +16,7 @@
 #include "quad_round_frag_src.h"
 #include "quad_grad_round_frag_src.h"
 #include "tex_frag_src.h"
+#include "discard_transparent_frag_src.h"
 #include "box_shadow_frag_src.h"
 #include "blur1_frag_src.h"
 #include "blur2_frag_src.h"
@@ -261,8 +262,6 @@ bool link_tex_program(struct tex_shader *shader, enum fx_tex_shader_source sourc
 	shader->pos_attrib = glGetAttribLocation(prog, "pos");
 	shader->tex_proj = glGetUniformLocation(prog, "tex_proj");
 
-	shader->discard_transparent = glGetUniformLocation(prog, "discard_transparent");
-
 	if (!effects) {
 		return true;
 	}
@@ -280,6 +279,24 @@ bool link_tex_program(struct tex_shader *shader, enum fx_tex_shader_source sourc
 	shader->effects.clip_radius.bottom_left = glGetUniformLocation(prog, "clip_radius_bottom_left");
 	shader->effects.clip_radius.bottom_right = glGetUniformLocation(prog, "clip_radius_bottom_right");
 
+	return true;
+}
+
+bool link_discard_transparent_program(struct tex_shader *shader,
+		enum fx_tex_shader_source source) {
+	GLchar frag_src[4096];
+	snprintf(frag_src, sizeof(frag_src), discard_transparent_frag_src, source);
+
+	shader->program = link_program(frag_src);
+	if (!shader->program) {
+		return false;
+	}
+
+	shader->proj = glGetUniformLocation(shader->program, "proj");
+	shader->tex = glGetUniformLocation(shader->program, "tex");
+	shader->alpha = -1;
+	shader->pos_attrib = glGetAttribLocation(shader->program, "pos");
+	shader->tex_proj = glGetUniformLocation(shader->program, "tex_proj");
 	return true;
 }
 
