@@ -356,11 +356,17 @@ void fx_render_pass_add_texture(struct fx_gles_render_pass *pass,
 
 	struct tex_shader *shader = NULL;
 
-	bool use_effects = !fx_corner_fradii_is_empty(&fx_options->corners)
-		|| clipped_fregion_is_valid(&fx_options->clipped_region);
+	bool discard_transparent = fx_options->discard_transparent;
+	bool use_effects = !discard_transparent &&
+		(!fx_corner_fradii_is_empty(&fx_options->corners)
+		|| clipped_fregion_is_valid(&fx_options->clipped_region));
 	switch (texture->target) {
 	case GL_TEXTURE_2D:
-		if (texture->has_alpha) {
+		if (discard_transparent) {
+			shader = texture->has_alpha
+				? &renderer->shaders.discard_transparent_rgba
+				: &renderer->shaders.discard_transparent_rgbx;
+		} else if (texture->has_alpha) {
 			shader = use_effects
 				? &renderer->shaders.tex_effects_rgba
 				: &renderer->shaders.tex_rgba;
@@ -374,7 +380,9 @@ void fx_render_pass_add_texture(struct fx_gles_render_pass *pass,
 		// EGL_EXT_image_dma_buf_import_modifiers requires
 		// GL_OES_EGL_image_external
 		assert(renderer->exts.OES_egl_image_external);
-		shader = use_effects
+		shader = discard_transparent
+			? &renderer->shaders.discard_transparent_ext
+			: use_effects
 			? &renderer->shaders.tex_effects_ext
 			: &renderer->shaders.tex_ext;
 		break;
@@ -474,8 +482,6 @@ void fx_render_pass_add_texture(struct fx_gles_render_pass *pass,
 
 	glUniform1i(shader->tex, 0);
 	glUniform1f(shader->alpha, alpha);
-
-	glUniform1f(shader->discard_transparent, fx_options->discard_transparent);
 
 	if (use_effects) {
 		struct fx_corner_fradii corners = fx_options->corners;
@@ -1133,16 +1139,16 @@ void fx_render_pass_add_blur(struct fx_gles_render_pass *pass,
 	struct wlr_texture *wlr_texture =
 		fx_texture_from_buffer(&renderer->wlr_renderer, buffer->buffer);
 	struct fx_texture *blur_texture = fx_get_texture(wlr_texture);
+	bool should_ignore_transparent = fx_options->ignore_transparent &&
+		fx_options->tex_options.base.texture != NULL;
 
 	// Get a stencil of the window ignoring transparent regions
-	if (fx_options->ignore_transparent && fx_options->tex_options.base.texture) {
+	if (should_ignore_transparent) {
 		stencil_mask_init();
-
-		struct fx_render_texture_options tex_options = fx_options->tex_options;
-		tex_options.discard_transparent = true;
-		tex_options.clipped_region = fx_options->clipped_region;
-		fx_render_pass_add_texture(pass, &tex_options);
-
+		struct fx_render_texture_options mask_options = fx_options->tex_options;
+		mask_options.discard_transparent = true;
+		mask_options.clipped_region = fx_options->clipped_region;
+		fx_render_pass_add_texture(pass, &mask_options);
 		stencil_mask_close(true);
 	}
 
@@ -1168,7 +1174,7 @@ void fx_render_pass_add_blur(struct fx_gles_render_pass *pass,
 	wlr_texture_destroy(&blur_texture->wlr_texture);
 
 	// Finish stenciling
-	if (fx_options->ignore_transparent && fx_options->tex_options.base.texture) {
+	if (should_ignore_transparent) {
 		stencil_mask_fini();
 	}
 
